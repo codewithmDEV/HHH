@@ -44,36 +44,59 @@ export default function Community() {
   const [authorName, setAuthorName] = useState('')
   const [content, setContent] = useState('')
   const [category, setCategory] = useState<CommunityPost['category']>('reflection')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
-  function refresh() {
-    const existing = communityStore.list()
-    if (existing.length === 0) {
-      seedPosts.forEach((p) => communityStore.create(p))
+  async function refresh() {
+    try {
+      const existing = await communityStore.list()
+      if (existing.length === 0) {
+        for (const p of seedPosts) {
+          await communityStore.create(p)
+        }
+        setPosts(await communityStore.list())
+      } else {
+        setPosts(existing)
+      }
+    } catch (e) {
+      console.error('Failed to load community posts', e)
+    } finally {
+      setLoading(false)
     }
-    setPosts(communityStore.list())
   }
 
   useEffect(() => {
     refresh()
   }, [])
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!content.trim() || !authorName.trim()) return
-    communityStore.create({
-      authorName: authorName.trim(),
-      content: content.trim(),
-      category,
-    })
-    setAuthorName('')
-    setContent('')
-    setCategory('reflection')
-    setShowForm(false)
-    refresh()
+    setSubmitting(true)
+    try {
+      await communityStore.create({
+        authorName: authorName.trim(),
+        content: content.trim(),
+        category,
+      })
+      setAuthorName('')
+      setContent('')
+      setCategory('reflection')
+      setShowForm(false)
+      refresh()
+    } catch (e) {
+      console.error('Failed to create post', e)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function heart(id: string) {
-    communityStore.heart(id)
-    refresh()
+  async function heart(id: string) {
+    try {
+      await communityStore.heart(id)
+      refresh()
+    } catch (e) {
+      console.error('Failed to heart post', e)
+    }
   }
 
   function formatTime(iso: string): string {
@@ -86,6 +109,18 @@ export default function Community() {
     const days = Math.floor(hours / 24)
     if (days < 7) return `${days}d ago`
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="Community" subtitle="Share, learn, and grow together" />
+        <div className="px-5 text-center py-12">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin mx-auto mb-3" />
+          <p className="text-stone text-sm">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -138,8 +173,8 @@ export default function Community() {
               onChange={(e) => setContent(e.target.value)}
             />
             <div className="flex gap-2">
-              <button onClick={handleSubmit} className="btn-primary flex-1">
-                Share
+              <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">
+                {submitting ? 'Sharing...' : 'Share'}
               </button>
               <button onClick={() => setShowForm(false)} className="btn-ghost">
                 Cancel

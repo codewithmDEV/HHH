@@ -21,16 +21,30 @@ export default function Home() {
   const [totalSalah, setTotalSalah] = useState(0)
   const [activeIntentions, setActiveIntentions] = useState(0)
   const [nurturedToday, setNurturedToday] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const today = salahStore.getToday()
-    if (today) {
-      setSalahToday([today.fajr, today.dhuhr, today.asr, today.maghrib, today.isha].filter(Boolean).length)
-    }
-    setTotalSalah(salahStore.list().length)
-    const intentions = intentionsStore.list()
-    setActiveIntentions(intentions.length)
-    setNurturedToday(intentions.filter((i) => nurtureStore.isNurturedToday(i.id)).length)
+    (async () => {
+      try {
+        const today = await salahStore.getToday()
+        if (today) {
+          setSalahToday([today.fajr, today.dhuhr, today.asr, today.maghrib, today.isha].filter(Boolean).length)
+        }
+        const salahHistory = await salahStore.list()
+        setTotalSalah(salahHistory.length)
+        const intentions = await intentionsStore.list()
+        setActiveIntentions(intentions.length)
+        let nurturedCount = 0
+        for (const i of intentions) {
+          if (await nurtureStore.isNurturedToday(i.id)) nurturedCount++
+        }
+        setNurturedToday(nurturedCount)
+      } catch (e) {
+        console.error('Failed to load home data', e)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
   const greeting = (() => {
@@ -62,16 +76,16 @@ export default function Home() {
             <Icon name="salah" size={16} className="text-clay" />
             <span className="text-xs text-stone font-medium">Salah Today</span>
           </div>
-          <p className="text-2xl font-serif font-bold text-forest">{salahToday}/5</p>
-          <p className="text-xs text-stone mt-0.5">{totalSalah} days nurtured</p>
+          <p className="text-2xl font-serif font-bold text-forest">{loading ? '—' : `${salahToday}/5`}</p>
+          <p className="text-xs text-stone mt-0.5">{loading ? '...' : `${totalSalah} days nurtured`}</p>
         </div>
         <div className="card">
           <div className="flex items-center gap-2 mb-1">
             <Icon name="intention" size={16} className="text-clay" />
             <span className="text-xs text-stone font-medium">Intentions</span>
           </div>
-          <p className="text-2xl font-serif font-bold text-forest">{activeIntentions}</p>
-          <p className="text-xs text-stone mt-0.5">{nurturedToday} nurtured today</p>
+          <p className="text-2xl font-serif font-bold text-forest">{loading ? '—' : activeIntentions}</p>
+          <p className="text-xs text-stone mt-0.5">{loading ? '...' : `${nurturedToday} nurtured today`}</p>
         </div>
       </div>
 

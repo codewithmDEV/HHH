@@ -16,18 +16,28 @@ export default function Guidance() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isThinking, setIsThinking] = useState(false)
+  const [loading, setLoading] = useState(true)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const history = guidanceStore.list().slice(0, 20).reverse()
-    if (history.length > 0) {
-      setMessages(
-        history.map((h) => [
-          { id: h.id + '-q', role: 'user' as const, text: h.question },
-          { id: h.id + '-r', role: 'guide' as const, text: h.response, sources: h.sources },
-        ]).flat(),
-      )
-    }
+    (async () => {
+      try {
+        const history = await guidanceStore.list()
+        const recent = history.slice(0, 20).reverse()
+        if (recent.length > 0) {
+          setMessages(
+            recent.map((h: GuidanceChat) => [
+              { id: h.id + '-q', role: 'user' as const, text: h.question },
+              { id: h.id + '-r', role: 'guide' as const, text: h.response, sources: h.sources },
+            ]).flat(),
+          )
+        }
+      } catch (e) {
+        console.error('Failed to load guidance history', e)
+      } finally {
+        setLoading(false)
+      }
+    })()
   }, [])
 
   useEffect(() => {
@@ -53,8 +63,21 @@ export default function Guidance() {
       const guideMsg: Message = { id: crypto.randomUUID(), role: 'guide', text: response, sources }
       setMessages((m) => [...m, guideMsg])
       setIsThinking(false)
-      guidanceStore.create({ question, response, sources })
+      guidanceStore.create({ question, response, sources }).catch((e) =>
+        console.error('Failed to save guidance chat', e),
+      )
     }, 800 + Math.random() * 600)
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in flex flex-col" style={{ height: 'calc(100vh - 72px)' }}>
+        <PageHeader title="Seek Guidance" subtitle="Answers rooted in Quran and authenticated Sunnah" />
+        <div className="flex-1 flex items-center justify-center">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin" />
+        </div>
+      </div>
+    )
   }
 
   return (

@@ -20,35 +20,55 @@ export default function Journal() {
   const [content, setContent] = useState('')
   const [mood, setMood] = useState<JournalEntry['mood']>('reflective')
   const [linkedIntentionId, setLinkedIntentionId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
-  function refresh() {
-    setEntries(journalStore.list())
-    setIntentions(intentionsStore.list())
+  async function refresh() {
+    try {
+      const [e, i] = await Promise.all([journalStore.list(), intentionsStore.list()])
+      setEntries(e)
+      setIntentions(i)
+    } catch (err) {
+      console.error('Failed to load journal', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     refresh()
   }, [])
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!content.trim()) return
-    journalStore.create({
-      title: title.trim(),
-      content: content.trim(),
-      mood,
-      linkedIntentionId,
-    })
-    setTitle('')
-    setContent('')
-    setMood('reflective')
-    setLinkedIntentionId(null)
-    setShowForm(false)
-    refresh()
+    setSubmitting(true)
+    try {
+      await journalStore.create({
+        title: title.trim(),
+        content: content.trim(),
+        mood,
+        linkedIntentionId,
+      })
+      setTitle('')
+      setContent('')
+      setMood('reflective')
+      setLinkedIntentionId(null)
+      setShowForm(false)
+      refresh()
+    } catch (e) {
+      console.error('Failed to create journal entry', e)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function remove(id: string) {
-    journalStore.remove(id)
-    refresh()
+  async function remove(id: string) {
+    try {
+      await journalStore.remove(id)
+      refresh()
+    } catch (e) {
+      console.error('Failed to remove journal entry', e)
+    }
   }
 
   function formatDate(iso: string): string {
@@ -59,6 +79,18 @@ export default function Journal() {
       hour: 'numeric',
       minute: '2-digit',
     })
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="Reflection Journal" subtitle="A quiet space to reflect and grow" />
+        <div className="px-5 text-center py-12">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin mx-auto mb-3" />
+          <p className="text-stone text-sm">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -127,8 +159,8 @@ export default function Journal() {
               </div>
             )}
             <div className="flex gap-2">
-              <button onClick={handleSubmit} className="btn-primary flex-1">
-                Save Reflection
+              <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">
+                {submitting ? 'Saving...' : 'Save Reflection'}
               </button>
               <button onClick={() => setShowForm(false)} className="btn-ghost">
                 Cancel

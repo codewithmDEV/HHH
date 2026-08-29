@@ -40,9 +40,17 @@ export default function Orphan() {
   const [amount, setAmount] = useState('')
   const [frequency, setFrequency] = useState<'monthly' | 'one_time'>('monthly')
   const [note, setNote] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
 
-  function refresh() {
-    setSponsorships(sponsorshipStore.list())
+  async function refresh() {
+    try {
+      setSponsorships(await sponsorshipStore.list())
+    } catch (e) {
+      console.error('Failed to load sponsorships', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -66,37 +74,64 @@ export default function Orphan() {
     setShowForm(true)
   }
 
-  function handleSubmit() {
+  async function handleSubmit() {
     const amt = parseFloat(amount)
     if (!name.trim() || isNaN(amt) || amt <= 0) return
-    sponsorshipStore.create({
-      orphanageName: name.trim(),
-      orphanageLocation: location.trim(),
-      amount: amt,
-      frequency,
-      note: note.trim(),
-    })
-    setShowForm(false)
-    setName('')
-    setLocation('')
-    setAmount('')
-    setNote('')
-    refresh()
+    setSubmitting(true)
+    try {
+      await sponsorshipStore.create({
+        orphanageName: name.trim(),
+        orphanageLocation: location.trim(),
+        amount: amt,
+        frequency,
+        note: note.trim(),
+      })
+      setShowForm(false)
+      setName('')
+      setLocation('')
+      setAmount('')
+      setNote('')
+      refresh()
+    } catch (e) {
+      console.error('Failed to create sponsorship', e)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function toggleActive(id: string) {
-    sponsorshipStore.toggleActive(id)
-    refresh()
+  async function toggleActive(id: string) {
+    try {
+      await sponsorshipStore.toggleActive(id)
+      refresh()
+    } catch (e) {
+      console.error('Failed to toggle sponsorship', e)
+    }
   }
 
-  function remove(id: string) {
-    sponsorshipStore.remove(id)
-    refresh()
+  async function remove(id: string) {
+    try {
+      await sponsorshipStore.remove(id)
+      refresh()
+    } catch (e) {
+      console.error('Failed to remove sponsorship', e)
+    }
   }
 
   const totalMonthly = sponsorships
     .filter((s) => s.isActive && s.frequency === 'monthly')
     .reduce((sum, s) => sum + s.amount, 0)
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="Orphan Sponsorship" subtitle="Care for those who need it most" />
+        <div className="px-5 text-center py-12">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin mx-auto mb-3" />
+          <p className="text-stone text-sm">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="animate-fade-in">
@@ -194,8 +229,8 @@ export default function Orphan() {
               />
             </div>
             <div className="flex gap-2">
-              <button onClick={handleSubmit} className="btn-primary flex-1">
-                Begin Sponsorship
+              <button onClick={handleSubmit} disabled={submitting} className="btn-primary flex-1 disabled:opacity-50">
+                {submitting ? 'Saving...' : 'Begin Sponsorship'}
               </button>
               <button onClick={() => setShowForm(false)} className="btn-ghost">
                 Cancel

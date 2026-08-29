@@ -15,26 +15,50 @@ const prayers = [
 export default function Salah() {
   const [today, setToday] = useState<SalahLog | null>(null)
   const [history, setHistory] = useState<SalahLog[]>([])
+  const [loading, setLoading] = useState(true)
 
-  function refresh() {
-    setToday(salahStore.getToday())
-    setHistory(salahStore.list().slice(0, 14))
+  async function refresh() {
+    try {
+      const [t, h] = await Promise.all([salahStore.getToday(), salahStore.list()])
+      setToday(t)
+      setHistory(h.slice(0, 14))
+    } catch (e) {
+      console.error('Failed to load salah data', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     refresh()
   }, [])
 
-  function toggle(key: keyof Pick<SalahLog, 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha'>) {
-    const current = today ?? salahStore.upsertToday({})
+  async function toggle(key: keyof Pick<SalahLog, 'fajr' | 'dhuhr' | 'asr' | 'maghrib' | 'isha'>) {
+    const current = today ?? { fajr: false, dhuhr: false, asr: false, maghrib: false, isha: false }
     const newVal = !current[key]
-    salahStore.upsertToday({ [key]: newVal })
-    refresh()
+    try {
+      await salahStore.upsertToday({ [key]: newVal })
+      refresh()
+    } catch (e) {
+      console.error('Failed to toggle salah', e)
+    }
   }
 
   const completedCount = today
     ? [today.fajr, today.dhuhr, today.asr, today.maghrib, today.isha].filter(Boolean).length
     : 0
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="Salah Tracker" subtitle="A gentle record of your daily prayers" />
+        <div className="px-5 text-center py-12">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin mx-auto mb-3" />
+          <p className="text-stone text-sm">Loading...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="animate-fade-in">

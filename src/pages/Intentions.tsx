@@ -12,57 +12,111 @@ const categories = [
 
 export default function Intentions() {
   const [intentions, setIntentions] = useState<Intention[]>([])
+  const [nurtureMap, setNurtureMap] = useState<Record<string, boolean>>({})
+  const [logCountMap, setLogCountMap] = useState<Record<string, number>>({})
   const [showForm, setShowForm] = useState(false)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState<'deen' | 'dunya' | 'balance'>('balance')
   const [focusAreas, setFocusAreas] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  function refresh() {
-    setIntentions(intentionsStore.list())
+  async function refresh() {
+    try {
+      const list = await intentionsStore.list()
+      setIntentions(list)
+      const nMap: Record<string, boolean> = {}
+      const lMap: Record<string, number> = {}
+      for (const i of list) {
+        nMap[i.id] = await nurtureStore.isNurturedToday(i.id)
+        lMap[i.id] = (await nurtureStore.forIntention(i.id)).length
+      }
+      setNurtureMap(nMap)
+      setLogCountMap(lMap)
+    } catch (e) {
+      console.error('Failed to load intentions', e)
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
     refresh()
   }, [])
 
-  function handleSubmit() {
+  async function handleSubmit() {
     if (!title.trim()) return
-    intentionsStore.create({
-      title: title.trim(),
-      description: description.trim(),
-      category,
-      focusAreas: focusAreas
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    })
-    setTitle('')
-    setDescription('')
-    setFocusAreas('')
-    setCategory('balance')
-    setShowForm(false)
-    refresh()
-  }
-
-  function toggleNurture(id: string) {
-    const today = new Date().toISOString().split('T')[0]
-    nurtureStore.toggle(id, today)
-    refresh()
-  }
-
-  function markGrown(id: string) {
-    const intention = intentions.find((i) => i.id === id)
-    if (intention) {
-      intentionsStore.update(id, { isNurtured: !intention.isNurtured })
+    try {
+      await intentionsStore.create({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+        focusAreas: focusAreas
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean),
+      })
+      setTitle('')
+      setDescription('')
+      setFocusAreas('')
+      setCategory('balance')
+      setShowForm(false)
       refresh()
+    } catch (e) {
+      console.error('Failed to create intention', e)
     }
   }
 
-  function remove(id: string) {
-    intentionsStore.remove(id)
-    refresh()
+  async function toggleNurture(id: string) {
+    const today = new Date().toISOString().split('T')[0]
+    try {
+      await nurtureStore.toggle(id, today)
+      refresh()
+    } catch (e) {
+      console.error('Failed to toggle nurture', e)
+    }
+  }
+
+  async function markGrown(id: string) {
+    const intention = intentions.find((i) => i.id === id)
+    if (intention) {
+      try {
+        await intentionsStore.update(id, { isNurtured: !intention.isNurtured })
+        refresh()
+      } catch (e) {
+        console.error('Failed to update intention', e)
+      }
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await intentionsStore.remove(id)
+      refresh()
+    } catch (e) {
+      console.error('Failed to remove intention', e)
+    }
+  }
+
+  async function updateReflection(id: string, reflection: string) {
+    try {
+      await intentionsStore.update(id, { reflection })
+    } catch (e) {
+      console.error('Failed to update reflection', e)
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="animate-fade-in">
+        <PageHeader title="Intentions" subtitle="Set intentions, nurture them gently" />
+        <div className="px-5 text-center py-12">
+          <Icon name="refresh" size={24} className="text-forest/40 animate-spin mx-auto mb-3" />
+          <p className="text-stone text-sm">Loading...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -156,8 +210,8 @@ export default function Intentions() {
 
         <div className="space-y-3">
           {intentions.map((intention) => {
-            const nurturedToday = nurtureStore.isNurturedToday(intention.id)
-            const logCount = nurtureStore.forIntention(intention.id).length
+            const nurturedToday = nurtureMap[intention.id] ?? false
+            const logCount = logCountMap[intention.id] ?? 0
             const isExpanded = expandedId === intention.id
 
             return (
@@ -228,7 +282,7 @@ export default function Intentions() {
                         defaultValue={intention.reflection}
                         onBlur={(e) => {
                           if (e.target.value !== intention.reflection) {
-                            intentionsStore.update(intention.id, { reflection: e.target.value })
+                            updateReflection(intention.id, e.target.value)
                           }
                         }}
                       />
