@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: #FBF6EF;
+    color: #1E1E1E;
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+    overscroll-behavior-y: none;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: 'Cormorant Garamond', Georgia, serif;
+  }
+}
+
+@layer components {
+  .card {
+    @apply bg-moss/40 rounded-2xl p-5 border border-forest/10;
+  }
+
+  .card-forest {
+    @apply bg-forest rounded-2xl p-5 text-cream;
+  }
+
+  .btn-primary {
+    @apply bg-forest text-cream rounded-xl px-5 py-3 font-medium text-sm transition-all active:scale-95 hover:bg-forest-light;
+  }
+
+  .btn-clay {
+    @apply bg-clay text-cream rounded-xl px-5 py-3 font-medium text-sm transition-all active:scale-95 hover:bg-clay-light;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-forest rounded-xl px-5 py-3 font-medium text-sm transition-all active:scale-95 hover:bg-forest/10;
+  }
+
+  .input-field {
+    @apply bg-cream border border-forest/15 rounded-xl px-4 py-3 text-ink placeholder:text-stone/50 outline-none focus:border-clay transition-colors w-full;
+  }
+
+  .nav-item {
+    @apply flex flex-col items-center justify-center gap-1 flex-1 transition-colors;
+  }
+
+  .nav-item-active {
+    @apply text-clay;
+  }
+
+  .nav-item-inactive {
+    @apply text-cream/50;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #1E3A2F33;
+  border-radius: 4px;
+}
+
+/* Hide scrollbar for horizontal scroll containers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
